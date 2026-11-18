@@ -11,10 +11,15 @@ from app.config import Config
 from app.db import init_db
 from app.services import (
     close_batch,
+    close_board,
+    close_spot,
     get_batch,
     list_batches,
+    list_dead_letters,
     list_objects,
+    list_queue,
     list_reports,
+    list_vouchers,
     register_object,
     run_visibility,
 )
@@ -155,20 +160,67 @@ async def api_register(request: Request, batch_id: int) -> Response:
 
 @post("/api/batches/{batch_id:int}/close")
 async def api_close(request: Request, batch_id: int) -> Response:
-    require_user(request)
+    operator = require_user(request)
     try:
-        run = close_batch(batch_id)
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    try:
+        result = close_batch(batch_id, operator=operator)
     except ServiceError as exc:
         return Response(
-            content={"ok": False, "error": exc.message},
+            content={
+                "ok": False,
+                "error": exc.message,
+                "outcome": "rolled_back",
+                "batch_id": batch_id,
+                "voucher_no": None,
+                "dead_letter": exc.casualty,
+                "detail": exc.payload,
+            },
             status_code=exc.status_code,
             media_type="application/json",
         )
     return Response(
-        content={"ok": True, "run": run},
+        content={"ok": True, **result},
         status_code=200,
         media_type="application/json",
     )
+
+
+@get("/api/batches/{batch_id:int}/close-spot")
+async def api_close_spot(request: Request, batch_id: int) -> dict:
+    require_user(request)
+    spot = close_spot(batch_id)
+    if not spot:
+        raise HTTPException(status_code=404, detail="批次不存在")
+    return spot
+
+
+@get("/api/close-board")
+async def api_close_board(request: Request) -> dict:
+    require_user(request)
+    return close_board()
+
+
+@get("/api/close-queue")
+async def api_close_queue(request: Request, batch_id: int | None = None) -> dict:
+    require_user(request)
+    return {"items": list_queue(batch_id=batch_id)}
+
+
+@get("/api/close-vouchers")
+async def api_close_vouchers(request: Request) -> dict:
+    require_user(request)
+    return {"items": list_vouchers()}
+
+
+@get("/api/dead-letters")
+async def api_dead_letters(request: Request, batch_id: int | None = None) -> dict:
+    require_user(request)
+    return {"items": list_dead_letters(batch_id=batch_id)}
 
 
 @get("/api/visibility-reports")
@@ -201,6 +253,11 @@ app = Litestar(
         api_batch_detail,
         api_register,
         api_close,
+        api_close_spot,
+        api_close_board,
+        api_close_queue,
+        api_close_vouchers,
+        api_dead_letters,
         api_reports,
         api_run_report,
         create_static_files_router(path="/static", directories=[str(STATIC)]),

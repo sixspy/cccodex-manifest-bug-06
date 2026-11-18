@@ -2,10 +2,13 @@ from app.db import get_db
 
 
 class ServiceError(Exception):
-    def __init__(self, message: str, status_code: int = 400):
+    def __init__(self, message: str, status_code: int = 400, payload: dict | None = None):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
+        self.payload = payload or {}
+        # 闭合整笔回滚时由 close 服务补上的死信落点（队列号 / 回滚因）。
+        self.casualty: dict | None = None
 
 
 def list_objects(batch_id: int, db_path: str | None = None) -> list[dict]:

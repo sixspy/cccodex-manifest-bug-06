@@ -1,6 +1,14 @@
 from app.services.batches import list_batches, get_batch
 from app.services.objects import list_objects, register_object
 from app.services.close import close_batch
+from app.services.orchestration import (
+    close_board,
+    close_spot,
+    get_voucher,
+    list_dead_letters,
+    list_queue,
+    list_vouchers,
+)
 from app.services.visibility import list_reports, run_visibility
 
 __all__ = [
@@ -9,6 +17,12 @@ __all__ = [
     "list_objects",
     "register_object",
     "close_batch",
+    "close_board",
+    "close_spot",
+    "get_voucher",
+    "list_dead_letters",
+    "list_queue",
+    "list_vouchers",
     "list_reports",
     "run_visibility",
 ]
